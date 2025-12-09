@@ -3,6 +3,7 @@
     "description": "A module able to provide OpenMetrics formatted metrics about your SimpleSamlPhp instance",
     "type": "simplesamlphp-module",
     "require": {
+        "ext-redis": "*",
         "promphp/prometheus_client_php": "^2.14.1",
 
         "simplesamlphp/simplesamlphp": "~2.4.0"
