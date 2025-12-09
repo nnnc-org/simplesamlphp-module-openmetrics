@@ -1,0 +1,34 @@
+{
+    "name": "nnnc-org/simplesamlphp-module-openmetrics",
+    "description": "A module able to provide OpenMetrics formatted metrics about your SimpleSamlPhp instance",
+    "type": "simplesamlphp-module",
+    "require": {
+        "promphp/prometheus_client_php": "^2.14.1",
+
+        "simplesamlphp/simplesamlphp": "~2.4.0"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "SimpleSAML\\Module\\Openmetrics\\": "src/"
+        }
+    },
+    "support": {
+        "issues": "https://github.com/nnnc-org/simplesamlphp-module-openmetrics/issues",
+        "source": "https://github.com/nnnc-org/simplesamlphp-module-openmetrics"
+    },
+    "config": {
+        "preferred-install": {
+            "simplesamlphp/simplesamlphp": "source",
+            "*": "dist"
+        },
+        "allow-plugins": {
+            "composer/package-versions-deprecated": true,
+            "simplesamlphp/composer-module-installer": true,
+            "muglug/package-versions-56": true,
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "phpstan/extension-installer": true,
+            "simplesamlphp/composer-xmlprovider-installer": true
+        }
+    }
+}
