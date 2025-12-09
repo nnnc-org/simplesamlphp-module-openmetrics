@@ -1,0 +1,4 @@
+openmetrics-main:
+    path:       /metrics
+    defaults:   { _controller: 'SimpleSAML\Module\openmetrics\Controller\OpenMetrics::main' }
+    methods:    [GET]
