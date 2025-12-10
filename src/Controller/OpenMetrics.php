@@ -273,6 +273,13 @@ class OpenMetrics
         foreach ($entries["remote"]["saml20-idp-remote"] as $type => $set) {
             $entityid = $set["entityid"];
 
+            $name = "unknown";
+            if (isset($set["name"]["en-US"])) {
+                $name = $set["name"]["en-US"];
+            } elseif (isset($set["name"]["en"])) {
+                $name = $set["name"]["en"];
+            }
+
             if (!isset($set["keys"])) {
                 if (isset($set["certData"])) {
                     // single cert
@@ -280,7 +287,7 @@ class OpenMetrics
                         $entityid,
                         $set["certData"],
                         "unknown",
-                        $set["name"]["en-US"] ?? "unknown",
+                        $name,
                         "idp_remote",
                         $registry,
                     );
@@ -300,7 +307,7 @@ class OpenMetrics
                     $entityid,
                     $cert["X509Certificate"],
                     implode("+", $use),
-                    $set["name"]["en-US"] ?? "unknown",
+                    $name,
                     "idp_remote",
                     $registry,
                 );
