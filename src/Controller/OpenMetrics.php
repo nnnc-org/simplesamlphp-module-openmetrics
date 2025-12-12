@@ -29,8 +29,10 @@ use SimpleSAML\Module\saml\IdP\SAML2 as SAML2_IdP;
 use SimpleSAML\Assert\Assert;
 use SimpleSAML\SAML2\Constants as C;
 use Exception;
-use SimpleSAML\Store\RedisStore;
 use Predis\Collection\Iterator;
+
+use SimpleSAML\Store\RedisStore;
+use SimpleSAML\SessionHandler;
 
 class OpenMetrics
 {
@@ -424,13 +426,23 @@ class OpenMetrics
 
         // TODO: add support for other store types
         if ($storeType === "redis") {
+            $sh = SessionHandler::getSessionHandler($this->config);
             $store = new RedisStore();
             $redis = $store->redis;
 
             $sessions = 0;
-            foreach (new Iterator\Keyspace($redis, "SimpleSAMLphp:*") as $key) {
-                //print_r($key);
-                $sessions++;
+            foreach (
+                new Iterator\Keyspace($redis, "SimpleSAMLphpsession.*") //todo: make prefix configurable
+                as $key
+            ) {
+                $sessionName = str_replace("SimpleSAMLphpsession.", "", $key);
+                $s = $sh->loadSession($sessionName);
+
+                if (count($s->getAuthorities()) > 0) {
+                    $sessions++;
+                }
+
+                //$sessions++;
             }
 
             $gauge = $registry->getOrRegisterGauge(
