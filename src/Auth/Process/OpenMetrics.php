@@ -50,10 +50,16 @@ class OpenMetrics extends ProcessingFilter
         $idpcounter = $registry->getOrRegisterCounter(
             "simplesamlphp",
             "idp_successful_logins_total",
-            "Counter of successful logins for idp",
+            "Counter of successful logins for idp by multiauth source",
             ["entityId", "multiauth"],
+        );
+        $globallogincounter = $registry->getOrRegisterCounter(
+            "simplesamlphp",
+            "global_successful_logins_total",
+            "Counter of successful logins for all SPs and IDPs",
         );
         $spcounter->inc([$state["Destination"]["entityid"]]);
         $idpcounter->inc([$state["Source"]["entityid"], $source ?? "unknown"]);
+        $globallogincounter->inc();
     }
 }
