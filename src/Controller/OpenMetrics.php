@@ -438,6 +438,11 @@ class OpenMetrics
                 $sessionName = str_replace("SimpleSAMLphpsession.", "", $key);
                 $s = $sh->loadSession($sessionName);
 
+                //race condition if session deleted between getting keys and loading session
+                if ($s === null) {
+                    continue;
+                }
+
                 if (count($s->getAuthorities()) > 0) {
                     $sessions++;
                 }
