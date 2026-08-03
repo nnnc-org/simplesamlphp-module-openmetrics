@@ -32,7 +32,6 @@ use Exception;
 use Predis\Collection\Iterator;
 
 use SimpleSAML\Store\RedisStore;
-use SimpleSAML\SessionHandler;
 
 class OpenMetrics
 {
@@ -426,28 +425,78 @@ class OpenMetrics
 
         // TODO: add support for other store types
         if ($storeType === "redis") {
-            $sh = SessionHandler::getSessionHandler($this->config);
             $store = new RedisStore();
             $redis = $store->redis;
 
-            $sessions = 0;
+            // Enumerate all session keys first. The default SCAN COUNT hint of
+            // 10 means one round-trip per ~10 keys; a larger hint enumerates the
+            // whole keyspace in a handful of round-trips instead of hundreds.
+            $keys = [];
             foreach (
-                new Iterator\Keyspace($redis, "SimpleSAMLphpsession.*") //todo: make prefix configurable
+                new Iterator\Keyspace($redis, "SimpleSAMLphpsession.*", 1000) //todo: make prefix configurable
                 as $key
             ) {
-                $sessionName = str_replace("SimpleSAMLphpsession.", "", $key);
-                $s = $sh->loadSession($sessionName);
+                $keys[] = $key;
+            }
 
-                //race condition if session deleted between getting keys and loading session
-                if ($s === null) {
-                    continue;
+            // SSP configures the Predis client with a key prefix. SCAN returns
+            // fully-qualified server keys, but issuing GET through the same
+            // client re-applies the prefix — so strip it first, otherwise every
+            // read is double-prefixed and misses.
+            $prefix = "";
+            try {
+                $processor = $redis->getOptions()->prefix;
+                if ($processor !== null) {
+                    $prefix = $processor->getPrefix();
                 }
+            } catch (\Throwable $e) {
+                $prefix = "";
+            }
 
-                if (count($s->getAuthorities()) > 0) {
+            // Fetch the session blobs in pipelined batches rather than one
+            // blocking GET per session. This turns 3000+ sequential round-trips
+            // into a few, which is the dominant cost on large instances.
+            $sessions = 0;
+            foreach (array_chunk($keys, 500) as $batch) {
+                $blobs = $redis->pipeline(function ($pipe) use (
+                    $batch,
+                    $prefix,
+                ): void {
+                    foreach ($batch as $key) {
+                        // strip the client prefix so Predis re-adds exactly one
+                        $logicalKey =
+                            $prefix !== "" && str_starts_with($key, $prefix)
+                                ? substr($key, strlen($prefix))
+                                : $key;
+                        $pipe->get($logicalKey);
+                    }
+                });
+
+                foreach ($blobs as $blob) {
+                    // race condition: session may have been deleted between the
+                    // scan and the pipelined read, leaving a null/false value.
+                    if ($blob === null || $blob === false) {
+                        continue;
+                    }
+
+                    // The RedisStore serializes values with PHP serialize(), so
+                    // we can rehydrate the Session directly and skip the full
+                    // SessionHandler load path.
+                    try {
+                        $s = unserialize($blob);
+                    } catch (\Throwable $e) {
+                        continue;
+                    }
+
+                    if (
+                        !($s instanceof Session) ||
+                        count($s->getAuthorities()) === 0
+                    ) {
+                        continue;
+                    }
+
                     $sessions++;
                 }
-
-                //$sessions++;
             }
 
             $gauge = $registry->getOrRegisterGauge(
