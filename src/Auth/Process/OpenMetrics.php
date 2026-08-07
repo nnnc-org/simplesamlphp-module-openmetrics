@@ -4,6 +4,7 @@ namespace SimpleSAML\Module\openmetrics\Auth\Process;
 
 use SimpleSAML\Assert\Assert;
 use SimpleSAML\Auth\ProcessingFilter;
+use SimpleSAML\Configuration;
 use SimpleSAML\Logger;
 use SimpleSAML\Session;
 
@@ -31,7 +32,26 @@ class OpenMetrics extends ProcessingFilter
             $source = $value; // just grabs the last one if multiple exist
         }
 
-        Logger::info("OpenMetrics: Auth Proc Filter - multiauth: $source");
+        // Prefer the district the user actually selected, recorded by the
+        // nebraskacloudAuth:select controller. IDPs that federate through a
+        // shared upstream source (e.g. subA-idp -> broker-idp) authenticate as that
+        // source, so multiauth:selectedSource only ever reports the upstream. This
+        // key preserves per-idp reporting. Falls back to the delegated source.
+        $district = null;
+        $selectedDistrict = $session->getDataOfType(
+            "nebraskacloudAuth:selectedDistrict",
+        );
+        foreach ($selectedDistrict as $key => $value) {
+            Logger::info(
+                "OpenMetrics: nebraskacloudAuth selectedDistrict $key => $value",
+            );
+            $district = $value; // just grabs the last one if multiple exist
+        }
+
+        // Label used for the idp login counter's "multiauth" dimension.
+        $multiauthLabel = $district ?? $source;
+
+        Logger::info("OpenMetrics: Auth Proc Filter - multiauth: $multiauthLabel");
         Logger::info(
             "OpenMetrics: Auth Proc Filter - Source: {$state["Source"]["entityid"]}",
         );
@@ -39,7 +59,8 @@ class OpenMetrics extends ProcessingFilter
             "OpenMetrics: Auth Proc Filter - Destination: {$state["Destination"]["entityid"]}",
         );
 
-        PromRedis::setDefaultOptions(["host" => "redis"]); // TODO: Remove hardcoded host
+        $moduleConfig = Configuration::getConfig("module_openmetrics.php");
+        PromRedis::setDefaultOptions($moduleConfig->getArray("redis"));
         $registry = new CollectorRegistry(new PromRedis());
         $spcounter = $registry->getOrRegisterCounter(
             "simplesamlphp",
@@ -59,7 +80,7 @@ class OpenMetrics extends ProcessingFilter
             "Counter of successful logins for all SPs and IDPs",
         );
         $spcounter->inc([$state["Destination"]["entityid"]]);
-        $idpcounter->inc([$state["Source"]["entityid"], $source ?? "unknown"]);
+        $idpcounter->inc([$state["Source"]["entityid"], $multiauthLabel ?? "unknown"]);
         $globallogincounter->inc();
     }
 }

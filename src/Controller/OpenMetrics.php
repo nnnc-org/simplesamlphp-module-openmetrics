@@ -134,7 +134,7 @@ class OpenMetrics
 
         $this->updateMetrics(); // update metrics before rendering
 
-        PromRedis::setDefaultOptions(["host" => "redis"]); // TODO: Remove hardcoded host
+        PromRedis::setDefaultOptions($this->moduleConfig->getArray("redis"));
         $registry = new CollectorRegistry(new PromRedis());
         $renderer = new RenderTextFormat();
         $result = $renderer->render($registry->getMetricFamilySamples());
@@ -149,7 +149,7 @@ class OpenMetrics
 
     private function updateMetrics(): void
     {
-        PromRedis::setDefaultOptions(["host" => "redis"]); // TODO: Remove hardcoded host
+        PromRedis::setDefaultOptions($this->moduleConfig->getArray("redis"));
         $registry = new CollectorRegistry(new PromRedis());
 
         // session metrics
