@@ -5,13 +5,27 @@
  */
 
 $config = [
+    // Redis connection for the Prometheus metrics store.
+    //
+    // Any value set here wins. Anything omitted falls back to the matching
+    // environment variable, then to the library default (127.0.0.1 for host).
+    // Leave the whole array empty to configure entirely from the environment:
+    //
+    //   OPENMETRICS_REDIS_HOST                   (default 127.0.0.1)
+    //   OPENMETRICS_REDIS_PORT                   (default 6379)
+    //   OPENMETRICS_REDIS_PASSWORD
+    //   OPENMETRICS_REDIS_USER
+    //   OPENMETRICS_REDIS_DATABASE
+    //   OPENMETRICS_REDIS_TIMEOUT                (seconds, default 0.1)
+    //   OPENMETRICS_REDIS_READ_TIMEOUT           (seconds, default 10)
+    //   OPENMETRICS_REDIS_PERSISTENT_CONNECTIONS (true/false, default false)
     "redis" => [
-        'host' => '127.0.0.1',
-        'port' => 6379,
-        'password' => null,
-        'timeout' => 0.1, // in seconds
-        'read_timeout' => '10', // in seconds
-        'persistent_connections' => false
+        // 'host' => 'redis',
+        // 'port' => 6379,
+        // 'password' => null,
+        // 'timeout' => 0.1, // in seconds
+        // 'read_timeout' => '10', // in seconds
+        // 'persistent_connections' => false,
     ],
     //"basicAuth" => 'admin:changeme' // htpasswd -nB prometheus
 ];

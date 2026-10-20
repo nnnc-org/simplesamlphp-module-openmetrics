@@ -11,6 +11,8 @@ use SimpleSAML\Session;
 use Prometheus\Storage\Redis as PromRedis;
 use Prometheus\CollectorRegistry;
 
+use SimpleSAML\Module\openmetrics\RedisConfig;
+
 class OpenMetrics extends ProcessingFilter
 {
     public function process(array &$state): void
@@ -60,7 +62,7 @@ class OpenMetrics extends ProcessingFilter
         );
 
         $moduleConfig = Configuration::getConfig("module_openmetrics.php");
-        PromRedis::setDefaultOptions($moduleConfig->getArray("redis"));
+        PromRedis::setDefaultOptions(RedisConfig::options($moduleConfig));
         $registry = new CollectorRegistry(new PromRedis());
         $spcounter = $registry->getOrRegisterCounter(
             "simplesamlphp",

@@ -14,8 +14,11 @@ use Symfony\Component\HttpFoundation\Request;
 
 // Prometheus Client Libraries
 use Prometheus\Storage\Redis as PromRedis;
+use Prometheus\Storage\InMemory;
 use Prometheus\CollectorRegistry;
 use Prometheus\RenderTextFormat;
+
+use SimpleSAML\Module\openmetrics\RedisConfig;
 
 // namespaces used for generating metrics
 use SimpleSAML\Module; // collect enabled, disabled, & total modules
@@ -132,12 +135,34 @@ class OpenMetrics
             }
         }
 
-        $this->updateMetrics(); // update metrics before rendering
+        // All metadata-derived metrics (certificates, versions, module/entity
+        // counts, session counts) are recomputed from scratch on every scrape,
+        // so they belong in a throwaway in-memory registry that starts empty
+        // each request. Only the login counters are genuinely persistent state
+        // accumulated across separate requests, so those alone live in Redis.
+        // This is what keeps the cert expiration series self-pruning: a rotated
+        // serial or removed entity simply never gets re-registered, instead of
+        // lingering forever in a shared store.
+        $derivedRegistry = new CollectorRegistry(new InMemory());
+        $this->updateMetrics($derivedRegistry); // update metrics before rendering
 
-        PromRedis::setDefaultOptions($this->moduleConfig->getArray("redis"));
+        PromRedis::setDefaultOptions(RedisConfig::options($this->moduleConfig));
         $registry = new CollectorRegistry(new PromRedis());
+
+        // Only emit the persistent counters from Redis. Earlier versions of
+        // this module also wrote the derived gauges to Redis; those stale
+        // series are still stored but are filtered out here so they never get
+        // exported (they can be deleted out-of-band to reclaim the memory).
+        $counterSamples = array_filter(
+            $registry->getMetricFamilySamples(),
+            static fn($family): bool => $family->getType() === "counter",
+        );
+
         $renderer = new RenderTextFormat();
-        $result = $renderer->render($registry->getMetricFamilySamples());
+        $result = $renderer->render(array_merge(
+            $counterSamples,
+            $derivedRegistry->getMetricFamilySamples(),
+        ));
 
         $response = new Response();
         $response->setPublic();
@@ -147,16 +172,10 @@ class OpenMetrics
         return $response;
     }
 
-    private function updateMetrics(): void
+    private function updateMetrics(CollectorRegistry $registry): void
     {
-        PromRedis::setDefaultOptions($this->moduleConfig->getArray("redis"));
-        $registry = new CollectorRegistry(new PromRedis());
-
         // session metrics
         $this->sessionMetrics($registry);
-
-        // reset registry
-        //$registry->wipeStorage();
 
         // IDP Metadata Certificates Expiration Metrics
 
