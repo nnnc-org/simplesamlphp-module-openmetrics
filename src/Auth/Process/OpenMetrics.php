@@ -63,7 +63,11 @@ class OpenMetrics extends ProcessingFilter
 
         $moduleConfig = Configuration::getConfig("module_openmetrics.php");
         PromRedis::setDefaultOptions(RedisConfig::options($moduleConfig));
-        $registry = new CollectorRegistry(new PromRedis());
+        // Disable promphp's default metrics: its constructor otherwise writes a
+        // php_info{version=PHP_VERSION} gauge into Redis on every login, and
+        // that series is never pruned, so each PHP upgrade leaves another stale
+        // value behind. This filter only needs to increment the login counters.
+        $registry = new CollectorRegistry(new PromRedis(), false);
         $spcounter = $registry->getOrRegisterCounter(
             "simplesamlphp",
             "sp_successful_logins_total",

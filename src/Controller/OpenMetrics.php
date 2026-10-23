@@ -147,7 +147,12 @@ class OpenMetrics
         $this->updateMetrics($derivedRegistry); // update metrics before rendering
 
         PromRedis::setDefaultOptions(RedisConfig::options($this->moduleConfig));
-        $registry = new CollectorRegistry(new PromRedis());
+        // Default metrics off: this registry only reads the persistent counters
+        // back out of Redis, so there is no reason to write promphp's default
+        // php_info gauge here (it is exported once, from the in-memory registry
+        // below). Leaving it on would keep re-adding a never-pruned
+        // php_info{version=PHP_VERSION} series to Redis on every scrape.
+        $registry = new CollectorRegistry(new PromRedis(), false);
 
         // Only emit the persistent counters from Redis. Earlier versions of
         // this module also wrote the derived gauges to Redis; those stale
